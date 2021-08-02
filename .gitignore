@@ -21,6 +21,7 @@ local.properties
 .classpath
 .settings/
 .loadpath
+APIKEY
 
 # CDT-specific
 .cproject
