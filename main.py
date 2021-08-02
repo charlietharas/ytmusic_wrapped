@@ -10,6 +10,7 @@ analyzeYear = datetime.datetime.now().year
 verbose = False
 duration = False
 moreDetails = False
+use_songs = False
 log = open('log.dat', 'w', encoding="utf8")
 
 def flags():
@@ -29,6 +30,9 @@ def flags():
         elif o in ("-y", "--year"):
             global analyzeYear
             analyzeYear = token
+        elif o in ("-s", "--songs"):
+            global use_songs
+            use_songs = True
 
 def should_not_ignore(title, year, header, analyzeYear):
     if (header == "YouTube Music"):
