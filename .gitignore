@@ -1,5 +1,6 @@
 *.dat
 *.db
+*.csv
 watch-history.json
 report*
 ytmusic*
