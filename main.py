@@ -33,6 +33,7 @@ class Analyzer():
             self.print_db()
         if self.duration:
             print("Getting durations. This may take a while.")
+            self.get_duration()
         print("Getting top 10's")
         self.prepare_tops()
         if self.verbose:
@@ -40,8 +41,6 @@ class Analyzer():
         self.log.close()
         print("Generating final report")
         self.gen_report()
-        conn.commit()
-        conn.close()
         print("All done!")
         
     # utility methods
@@ -221,6 +220,7 @@ class Analyzer():
             print("<br>", file=htmlreport)
             if self.more_details:
                 if self.duration:
+                    #TBA LAZY
                     #print('{0} - {1} songs ({2} mins)'.format(str(row[0]).replace(' - Topic', ''), row[1], str(row[2]//60)), file=htmlreport)
                     pass
                 else:
