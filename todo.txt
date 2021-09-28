@@ -1,0 +1,18 @@
+- combine songs with identical titles and artists but different URLs (under the same URL - idfk). Create ID system instead of using URLs as identifiers).
+
+- frequency charts for # of relistens of top 16 songs ("your sweet 16")
+
+- longest listening session
+
+- skip detection via timestamps of listen & duration of song
+
+- get # of unique songs listened to from each artist (sort by artist)
+
+- primitive documentation
+
+- matplotlib & GUI libraries (until more aesthetic things can be found)
+
+Long-term:
+- understand songs' relation to one another by their sequence
+- music as NLP: each song is a word, each session a sentence
+	- start by BoW model using song IDs
