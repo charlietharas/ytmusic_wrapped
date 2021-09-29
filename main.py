@@ -26,7 +26,8 @@ class Analyzer():
         # TODO proper file load system
         if self.load:
             print("Loading your preprocessed history file")
-            self.songsDF = pd.read_csv(self.open_file(self.loadfp), ".csv")
+            self.songsDF = pd.read_csv(self.open_file(self.loadfp, ".csv"))
+            self.songs = self.songsDF.to_dict(orient='list')
         else:
             print("We are now processing your file")
             self.parse_json()
@@ -37,9 +38,11 @@ class Analyzer():
         if self.verbose:
             self.print_db()
             
+        # TODO fix this stupid useless function
+        self.gen_csvs()
+
         # TODO duration code
-        if self.duration:
-            print("Getting durations. This may take a while.")
+        if self.duration and not self.load:
             self.get_duration()
             
         # TODO more statistics in final report
@@ -53,7 +56,11 @@ class Analyzer():
         
         # TODO update final report
         print("Generating final report")
+        self.total_minutes = sum(self.songs["Duration"])
         self.gen_report()
+        
+        self.songsDF.to_csv("report-songs.csv") # TODO fix scattered all-over-the-place CSV generation
+        
         print("All done!")
         
     # utility methods
@@ -76,7 +83,7 @@ class Analyzer():
             sys.exit()
     
     def parse_json(self):
-        self.songs = {"Title": [], "Artist": [], "Year": [], "URL": []}
+        self.songs = {"Title": [], "Artist": [], "Year": [], "URL": [], "Duration": []}
         json_object = json.load(self.file)
         for obj in json_object:
             if (self.should_not_ignore(obj['title'], obj['time'], obj['header'])):
@@ -85,6 +92,7 @@ class Analyzer():
                     self.songs["Artist"].append(obj['subtitles'][0]['name'].replace('- Topic ', '').replace('- Topic', ''))
                     self.songs["Year"].append(obj['time'])
                     self.songs["URL"].append(obj['titleUrl'][32:])
+                    self.songs["Duration"].append(0)
     
     def print_db(self):
         # TODO rework log system
@@ -107,16 +115,27 @@ class Analyzer():
                 
         # TODO consider moving artist generation to another method
         self.artists = {"Artist": occurrences.keys(), "Occurrences": occurrences.values()}
-        del occurrences
+        del occurrences # TODO better memory management with more del statements
+        
+        
+        
         self.artistsDF = pd.DataFrame(self.artists)
         self.artistsDF.to_csv("report-artists.csv")
-        
         self.artists_top = self.artistsDF.nlargest(10, ['Occurrences'])
 
         print("--- TOP ARTISTS ---")
         print(self.artists_top)
+    
+    def gen_csvs(self):
+        self.historyDF = pd.DataFrame(self.songs)
+        self.historyDF.to_csv("report-history.csv")
         
-        return songs_top, artists_top
+        # TODO fix that this code is reused elsewhere
+        self.songsDF = pd.DataFrame(self.songs)
+        self.total_songs = len(self.songsDF)
+        self.songsDF.drop_duplicates(subset=['URL'], inplace=True)
+        self.unique_songs = len(self.songsDF)
+        self.songsDF = self.songsDF.reset_index(drop=True)
     
     def delete_duplicate(self):
         occurrences = collections.Counter(self.songs['URL'])
@@ -124,16 +143,6 @@ class Analyzer():
         for i in self.songs['URL']:
             self.songs['Occurrences'].append(occurrences[i])
         del occurrences
-        
-        self.historyDF = pd.DataFrame(self.songs)
-        self.historyDF.to_csv("report-history.csv")
-        
-        self.songsDF = pd.DataFrame(self.songs)
-        self.total_songs = len(self.songsDF)
-        self.songsDF.drop_duplicates(subset=['URL'], inplace=True)
-        self.unique_songs = len(self.songsDF)
-        self.songsDF = self.songsDF.reset_index(drop=True)
-        self.songsDF.to_csv("report-songs.csv")    
         
     def print_full_tops(self):
         # TODO rework log system
@@ -171,54 +180,41 @@ class Analyzer():
             json_parsed = response.json()
             for item in json_parsed['items']:
                 duration = self.parse_duration(item['contentDetails']['duration'])
-                artist = item['snippet']['channelTitle']
-                title = item['snippet']['title']
+                #artist = item['snippet']['channelTitle']
+                #title = item['snippet']['title']
                 url = item['id']
-                self.cursor.execute(
-                    """UPDATE report SET duration = ?, artist = ?, title = ? WHERE url = ?""", (duration, artist, title, url))
+                
+                # update by url
+                for (j, i) in enumerate(self.songs["URL"]):
+                    if i == url:
+                        if duration >= 10:
+                            self.songs["Duration"][j] = duration
+                        else:
+                            self.songs["Duration"][j] = duration * 60
     
     def get_duration(self):
         # Count duration
-        self.cursor.execute("""SELECT id, artist, title, url FROM report""")
-        rows = self.cursor.fetchall()
-        print("\tNumber of videos: " + str(len(rows)))
         idlist = []
         calls = 0
-        for row in rows:
-            idlist.append(row[3])
+        print("Getting durations. This may take a while. Awaiting", len(self.songsDF["URL"]), "requests.")
+        for url in self.songsDF["URL"]: # TODO THIS IS WAY OVERBLOWN AGAIN. WHY? 
+            idlist.append(url)
             if len(idlist) == 50:
                 print("\tGetting info on videos " +
                       str(1+50*calls) + " - " + str(50+50*calls))
-                print(','.join(idlist), file=self.log)
                 self.call_api(idlist)
-                calls = calls + 1
+                calls += 1
                 idlist = []
         print("\tGetting info on videos " +
-              str(1+50*calls) + " - " + str(len(rows)))
-        print(','.join(idlist), file=self.log)
-        self.call_api(idlist, self.cursor)
-        self.cursor.execute("""UPDATE report SET duration = ?, artist = ?, title = ? WHERE title = ?""",
-                       (0, "Unknown Artist", "Unavailable Video", "parseme"))
+              str(1+50*calls) + " - " + str(self.unique_songs))
+        self.call_api(idlist)
+        
+        self.gen_csvs() # TODO fix this horrid function
     
-        # Calculate total duration
+        # TODO Calculate total duration
+        # TODO rework log system
         if self.verbose:
             print("####################Full List WITHOUT DOUBLON AND DURATION#####################", file=self.log)
-        song_count = 0
-        total_duration = 0
-        error_rate = 0
-        self.cursor.execute(
-            """SELECT id, artist, title, duration, occurence, url FROM report""")
-        rows = self.cursor.fetchall()
-        for row in rows:
-            datetime.datetime.now()
-            song_count = row[0]
-            if verbose:
-                print('{0} : {1} - {2}- {3} - occurence : {4} - {5}'.format(
-                    row[0], row[1], row[2], row[3], row[4], row[5]), file=self.log)
-            total_duration += row[3] * row[4]
-            if row[3] == 0:
-                error_rate = error_rate + 1
-        return (total_duration, error_rate, song_count)
     
     # report generation methods
     def gen_html_report(self):
@@ -231,25 +227,18 @@ class Analyzer():
         print(str(self.analyze_year), file=htmlreport)
         print(""" Wrapped</span><div class="container"><div class="minutes_title">Minutes Listened</div><div class="minutes">""", file=htmlreport)
         if self.duration:
-            print(str(self.total_minutes//60), file=htmlreport)
+            print(str(self.total_minutes//60), file=htmlreport) # TODO total_minutes
         else:
             print("N/A", file=htmlreport)
         print("""</div><br><br><div class="row"><div class="column"><div class="minutes_title">Top Artists</div><div class="list">""", file=htmlreport)
-        if self.duration:
-            #TBA LAZY
-            #self.cursor.execute("""SELECT artist, occurence, duration FROM artist_count WHERE (occurence > 5) ORDER by duration DESC LIMIT 10""")
-            pass
-        else:
-            sorted_artists = self.artists_top
-            top_artists, top_occurrences = sorted_artists['Artist'], sorted_artists['Occurrences']
-            durations = [0] * 10
-            del sorted_artists
-        for i, j, v in zip(top_artists, top_occurrences, durations):
+
+        print(self.artists_top.columns)
+        for i, j in zip(self.artists_top["Artist"], self.artists_top["Occurrences"]): # TODO add durations to artist stuff
             print("<br>", file=htmlreport)
             if self.more_details:
+                v = "TEMP"
                 if self.duration:
-                    #TBA LAZY
-                    #print('{0} - {1} songs ({2} mins)'.format(str(row[0]).replace(' - Topic', ''), row[1], str(row[2]//60)), file=htmlreport)
+                    print('{0} - {1} songs ({2} mins)'.format(str(i), j, str(v)), file=htmlreport) # TODO v should be artist duration (?)
                     pass
                 else:
                     print('{0} - {1} songs'.format(str(i), j), file=htmlreport)
@@ -320,5 +309,9 @@ for o, token in opts:
     elif o in ("-l", "--load"):
         load = True
         loadfp = token
+        
+# DEBUG
+load = True
+loadfp = "report-history.csv"
         
 analyzer = Analyzer(verbose, duration, more_details, analyze_year, use_songs, apikey, load, loadfp)
