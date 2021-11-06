@@ -1,4 +1,5 @@
 - combine songs with identical titles and artists but different URLs (under the same URL - idfk). Create ID system instead of using URLs as identifiers).
+	- maybe have a google photos "is this the same person" style prompt for these once a UI is created
 
 - frequency charts for # of relistens of top 16 songs ("your sweet 16")
 
@@ -11,6 +12,8 @@
 - primitive documentation
 
 - matplotlib & GUI libraries (until more aesthetic things can be found)
+
+- mass data analysis functions in a separate class after using a few spreadsheets to standardize (!!!)
 
 Long-term:
 - understand songs' relation to one another by their sequence
