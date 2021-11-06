@@ -7,64 +7,15 @@ import requests
 import re
 import pandas as pd
 import collections
-    
-class Analyzer():
-    
-    # backbone methods
-    def __init__(self, verbose, duration, more_details, use_songs, analyze_year, apikey, load, loadfp):
-        # TODO cleanup flags & init system
-        self.verbose, self.duration, self.more_details, self.use_songs, self.analyze_year, self.apikey, self.load, self.loadfp = (verbose, duration, more_details, use_songs, analyze_year, apikey, load, loadfp)
-        
-        # TODO rewrite log system
-        self.log = open('log.dat', 'w', encoding="utf8")
-        
-        self.main()
-        
-    def main(self):    
-        self.file = self.open_file(sys.argv[1], ".json")
-    
-        # TODO proper file load system
-        if self.load:
-            print("Loading your preprocessed history file")
-            self.songsDF = pd.read_csv(self.open_file(self.loadfp, ".csv"))
-            self.songs = self.songsDF.to_dict(orient='list')
-        else:
-            print("We are now processing your file")
-            self.parse_json()
-            print("Removing duplicates")
-            self.delete_duplicate()
-    
-        # TODO rewrite log system
-        if self.verbose:
-            self.print_db()
-            
-        # TODO fix this stupid useless function
-        self.gen_csvs()
+import os
 
-        # TODO duration code
-        if self.duration and not self.load:
-            self.get_duration()
-            
-        # TODO more statistics in final report
-        print("Getting top 10's")
-        self.prepare_tops()
-        
-        # TODO rewrite log system
-        if self.verbose:
-            self.print_full_tops()
-        self.log.close()
-        
-        # TODO update final report
-        print("Generating final report")
-        self.total_minutes = sum(self.songs["Duration"])
-        self.gen_report()
-        
-        self.songsDF.to_csv("report-songs.csv") # TODO fix scattered all-over-the-place CSV generation
-        
-        print("All done!")
+class Loader():
+    # backbone methods
+    def __init__(self, duration, more_details, use_songs, analyze_year, apikey):
+        self.duration, self.more_details, self.use_songs, self.analyze_year, self.apikey = (duration, more_details, use_songs, analyze_year, apikey)
+        self.file = self.open_file(sys.argv[1], ".json")
         
     # utility methods
-    # should_not_ignore | Check that a JSON entry meets the parameters for a YTM listening entry in WatchHistory
     def should_not_ignore(self, title, year, header):
         if (header == "YouTube Music" and title[:7] == "Watched" and year[:4] == str(self.analyze_year)):
             return True
@@ -76,80 +27,52 @@ class Analyzer():
                 file = open(filepath, "r", encoding="utf8")
                 return file
             except:
-                print("Could not open your history file")
+                print("Could not open your report file")
                 sys.exit()
         else:
-            print("Your history file should be a", filetype, "file")
+            print("There was an error opening your report files.")
             sys.exit()
+            
     
+    # processes bulk lists
     def parse_json(self):
-        self.songs = {"Title": [], "Artist": [], "Year": [], "URL": [], "Duration": []}
+        self.history = {"Title": [], "Artist": [], "Year": [], "URL": [], "Duration": []}
         json_object = json.load(self.file)
         for obj in json_object:
             if (self.should_not_ignore(obj['title'], obj['time'], obj['header'])):
                 if ('subtitles' in obj):
-                    self.songs["Title"].append(obj['title'][8:])
-                    self.songs["Artist"].append(obj['subtitles'][0]['name'].replace('- Topic ', '').replace('- Topic', ''))
-                    self.songs["Year"].append(obj['time'])
-                    self.songs["URL"].append(obj['titleUrl'][32:])
-                    self.songs["Duration"].append(0)
+                    self.history["Title"].append(obj['title'][8:])
+                    self.history["Artist"].append(obj['subtitles'][0]['name'].replace('- Topic ', '').replace('- Topic', ''))
+                    self.history["Year"].append(obj['time'])
+                    self.history["URL"].append(obj['titleUrl'][32:])
+                    self.history["Duration"].append(0)
+                    
+        occurrences = collections.Counter(self.history['URL'])
+        self.history['Occurrences'] = []
+        for i in self.history['URL']:
+            self.history['Occurrences'].append(occurrences[i])
+                    
+        occurrences = collections.Counter(self.history['Artist'])
+        duration = [0]*len(occurrences.keys())
+        self.artists = {"Artist": occurrences.keys(), "Occurrences": occurrences.values(), "Duration": duration}
     
-    def print_db(self):
-        # TODO rework log system
-        pass
-    
-    def prepare_tops(self):
-        # Top 10 Songs
-        self.songs_top = self.songsDF.nlargest(10, ['Occurrences'])
-        print("--- TOP SONGS ---")
-        print(self.songs_top)
-        
-        # Top 10 Artists
-        occurrences = {}
-        for i, v in enumerate(self.songsDF['Artist']):
-            try:
-                occurrences[v] += self.songsDF['Occurrences'][i]
-            except:
-                print(i, v)
-                occurrences[v] = self.songsDF['Occurrences'][i]
-                
-        # TODO consider moving artist generation to another method
-        self.artists = {"Artist": occurrences.keys(), "Occurrences": occurrences.values()}
-        del occurrences # TODO better memory management with more del statements
-        
-        
+    # generates dataframes and csv files
+    def gen_csvs(self):
+        self.historyDF = pd.DataFrame(self.history)
+        self.historyDF.to_csv("report-history.csv")
         
         self.artistsDF = pd.DataFrame(self.artists)
         self.artistsDF.to_csv("report-artists.csv")
-        self.artists_top = self.artistsDF.nlargest(10, ['Occurrences'])
-
-        print("--- TOP ARTISTS ---")
-        print(self.artists_top)
-    
-    def gen_csvs(self):
-        self.historyDF = pd.DataFrame(self.songs)
-        self.historyDF.to_csv("report-history.csv")
         
-        # TODO fix that this code is reused elsewhere
-        self.songsDF = pd.DataFrame(self.songs)
+        self.songsDF = pd.DataFrame(self.history)
         self.total_songs = len(self.songsDF)
+        # TODO more comprehensive duplicate dropping function (much further down the line)
         self.songsDF.drop_duplicates(subset=['URL'], inplace=True)
         self.unique_songs = len(self.songsDF)
         self.songsDF = self.songsDF.reset_index(drop=True)
-    
-    def delete_duplicate(self):
-        occurrences = collections.Counter(self.songs['URL'])
-        self.songs['Occurrences'] = []
-        for i in self.songs['URL']:
-            self.songs['Occurrences'].append(occurrences[i])
-        del occurrences
-        
-    def print_full_tops(self):
-        # TODO rework log system
-        pass
+        self.songsDF.to_csv("report-songs.csv")
     
     # API management functions
-    # TODO clean up this legacy function (?)
     def parse_duration(self, duration):
         timestr = duration
         time = re.findall(r'\d+', timestr)
@@ -168,9 +91,6 @@ class Analyzer():
             return 0
     
     def call_api(self, idlist):
-        # TODO rework log system
-        print("api called", file=self.log)
-        
         parameters = {"part": "contentDetails,snippet",
                       "id": ','.join(idlist), "key": self.apikey}
         response = requests.get(
@@ -180,24 +100,23 @@ class Analyzer():
             json_parsed = response.json()
             for item in json_parsed['items']:
                 duration = self.parse_duration(item['contentDetails']['duration'])
-                #artist = item['snippet']['channelTitle']
-                #title = item['snippet']['title']
                 url = item['id']
+                if duration < 10:
+                    duration = duration * 60
                 
                 # update by url
-                for (j, i) in enumerate(self.songs["URL"]):
+                for (j, i) in enumerate(self.history["URL"]):
                     if i == url:
                         if duration >= 10:
-                            self.songs["Duration"][j] = duration
-                        else:
-                            self.songs["Duration"][j] = duration * 60
+                            self.history["Duration"][j] = duration
     
     def get_duration(self):
         # Count duration
         idlist = []
         calls = 0
-        print("Getting durations. This may take a while. Awaiting", len(self.songsDF["URL"]), "requests.")
-        for url in self.songsDF["URL"]: # TODO THIS IS WAY OVERBLOWN AGAIN. WHY? 
+        unique_song_urls = set(self.history['URL'])
+        print("Getting durations. This may take a while. Awaiting", len(unique_song_urls), "requests.")
+        for url in unique_song_urls:
             idlist.append(url)
             if len(idlist) == 50:
                 print("\tGetting info on videos " +
@@ -206,98 +125,127 @@ class Analyzer():
                 calls += 1
                 idlist = []
         print("\tGetting info on videos " +
-              str(1+50*calls) + " - " + str(self.unique_songs))
+              str(1+50*calls) + " - " + str(len(unique_song_urls)))
         self.call_api(idlist)
         
-        self.gen_csvs() # TODO fix this horrid function
-    
-        # TODO Calculate total duration
-        # TODO rework log system
-        if self.verbose:
-            print("####################Full List WITHOUT DOUBLON AND DURATION#####################", file=self.log)
-    
-    # report generation methods
-    def gen_html_report(self):
+        # update artist durations
+        # i know this section is garbage i'll make it nicer later
+        artist_durations = {}
+        for i in range(len(self.history["Artist"])):
+            duration = self.history["Duration"][i]
+            artist = self.history["Artist"][i]
+            try:
+                artist_durations[artist] += duration
+            except:
+                artist_durations[artist] = duration
+                
+        occurrences = collections.Counter(self.history["Artist"])
+        artists_dict = collections.defaultdict(list)
+        for i in (artist_durations, occurrences):
+            for key, val in i.items():
+                artists_dict[key].append(val)
+                
+        durations = []
+        occurrences = []
+        for i, j in artists_dict.values():
+            durations.append(i)
+            occurrences.append(j)
+            
+        self.artists = {"Artist": artists_dict.keys(), "Occurrences": occurrences, "Duration": durations}
         
-        # TODO rewrite HTML report generation
+        self.gen_csvs()
         
-        htmlreport = open('report_{0}.html'.format(
-            str(self.analyze_year)), 'w', encoding=("utf8"))
-        print("""<!DOCTYPE html><html><head><title>Wrapped</title><style type="text/css">body{background-color: #000000;}.center-div{position: absolute; margin: auto; top: 0; right: 0; bottom: 0; left: 0; width: 50%; height: 90%; background-color: #000000; border-radius: 3px; padding: 10px;}.ytm_logo{width: 15%;position: relative;top: 30px;left: 40px;}.title_logo{width: 30%;position: relative;top: 30px;left: 60px;}.right_title{position: absolute;font-family: "Product Sans";top: 55px;right: 10%;font-size: 2em;color: #ffffff;}.container{position: relative;top: 13%;left: 53px;}.minutes_title{font-family: "Product Sans";font-size: 2em;color: #ffffff;}.minutes{font-family: "Product Sans";font-size: 6em;color: #ffffff;}.row{display: flex;}.column{flex: 50%;}.list{font-family: "Roboto";font-size: 1.5em;line-height: 30px;color: #ffffff;}</style></head><body><div class="center-div"><img src="ytm_logo.png" class="ytm_logo"><img src="title.png" class="title_logo"/><span class="right_title">""", file=htmlreport)
-        print(str(self.analyze_year), file=htmlreport)
-        print(""" Wrapped</span><div class="container"><div class="minutes_title">Minutes Listened</div><div class="minutes">""", file=htmlreport)
+    def outs(self):
+        print("We are now processing your file")
+        self.parse_json()            
+
         if self.duration:
-            print(str(self.total_minutes//60), file=htmlreport) # TODO total_minutes
+            self.get_duration()
+        else:
+            self.gen_csvs() # generates dataframes and CSVs
+        
+        return self.historyDF, self.artistsDF, self.songsDF
+    
+    def load(self, loadfp):
+        print("Loading your preprocessed history files")
+        historyDF = pd.read_csv(self.open_file(os.path.join(loadfp, "report-history.csv"), ".csv"))
+        artistsDF = pd.read_csv(self.open_file(os.path.join(loadfp, "report-artists.csv"), ".csv"))
+        songsDF = pd.read_csv(self.open_file(os.path.join(loadfp, "report-songs.csv"), ".csv"))
+        return historyDF, artistsDF, songsDF
+
+
+class Analyzer():
+    def __init__(self, historyDF, artistsDF, songsDF):
+        self.history = historyDF
+        self.artists = artistsDF
+        self.songs = songsDF
+
+    def tops(self):
+        # Top 10 Songs
+        songs_top = self.songs.nlargest(10, ['Occurrences'])
+        print("--- TOP SONGS ---")
+        print(songs_top)
+        
+        # Top 10 Artists
+        print(self.artists.head())
+        artists_top = self.artists.nlargest(10, ['Duration'])
+        print("--- TOP ARTISTS ---")
+        print(artists_top)
+        
+        return artists_top, songs_top
+    
+    def meta(self):
+        total_minutes = sum(self.history["Duration"])
+        return (total_minutes)
+    
+class Formatter():
+    def gen_report(self, args, meta, artists_top, songs_top):
+        
+        analyze_year, duration, more_details = args
+        total_minutes = meta
+        
+        # TODO rewrite HTML report generation        
+        # TODO Calculate total duration
+        htmlreport = open('report_{0}.html'.format(
+            str(analyze_year)), 'w', encoding=("utf8"))
+        print("""<!DOCTYPE html><html><head><title>Wrapped</title><style type="text/css">body{background-color: #000000;}.center-div{position: absolute; margin: auto; top: 0; right: 0; bottom: 0; left: 0; width: 50%; height: 90%; background-color: #000000; border-radius: 3px; padding: 10px;}.ytm_logo{width: 15%;position: relative;top: 30px;left: 40px;}.title_logo{width: 30%;position: relative;top: 30px;left: 60px;}.right_title{position: absolute;font-family: "Product Sans";top: 55px;right: 10%;font-size: 2em;color: #ffffff;}.container{position: relative;top: 13%;left: 53px;}.minutes_title{font-family: "Product Sans";font-size: 2em;color: #ffffff;}.minutes{font-family: "Product Sans";font-size: 6em;color: #ffffff;}.row{display: flex;}.column{flex: 50%;}.list{font-family: "Roboto";font-size: 1.5em;line-height: 30px;color: #ffffff;}</style></head><body><div class="center-div"><img src="ytm_logo.png" class="ytm_logo"><img src="title.png" class="title_logo"/><span class="right_title">""", file=htmlreport)
+        print(str(analyze_year), file=htmlreport)
+        print(""" Wrapped</span><div class="container"><div class="minutes_title">Minutes Listened</div><div class="minutes">""", file=htmlreport)
+        if duration:
+            print(str(total_minutes//60), file=htmlreport)
         else:
             print("N/A", file=htmlreport)
         print("""</div><br><br><div class="row"><div class="column"><div class="minutes_title">Top Artists</div><div class="list">""", file=htmlreport)
 
-        print(self.artists_top.columns)
-        for i, j in zip(self.artists_top["Artist"], self.artists_top["Occurrences"]): # TODO add durations to artist stuff
+        print(artists_top.columns)
+        for i, j, v in zip(artists_top["Artist"], artists_top["Occurrences"], artists_top["Duration"]): # TODO add durations to artist stuff
             print("<br>", file=htmlreport)
-            if self.more_details:
-                v = "TEMP"
-                if self.duration:
-                    print('{0} - {1} songs ({2} mins)'.format(str(i), j, str(v)), file=htmlreport) # TODO v should be artist duration (?)
+            if more_details:
+                if duration:
+                    print('{0} - {1} songs ({2} mins)'.format(str(i), j, str(v//60)), file=htmlreport) # TODO v should be artist duration (?)
                     pass
                 else:
                     print('{0} - {1} songs'.format(str(i), j), file=htmlreport)
             else:
                 print('{0}'.format(i), file=htmlreport)
         print("""</div></div><div class="column"><div class="minutes_title">Top Songs</div><div class="list">""", file=htmlreport)
-        sorted_songs = self.songs_top
-        top_songs, top_artists, top_occurrences = sorted_songs['Title'], sorted_songs['Artist'], sorted_songs['Occurrences']
+        top_songs, top_artists, top_occurrences = songs_top['Title'], songs_top['Artist'], songs_top['Occurrences']
         for i, j, k in zip(top_songs, top_artists, top_occurrences):
             print("<br>", file=htmlreport)
-            if self.more_details:
+            if more_details:
                 print('{0} - {1} - {2} plays'.format(j, i, k), file=htmlreport)
             else:
                 print('{0} - {1}'.format(j, i), file=htmlreport)
         print("""</div></div></div></div></div></body></html>""", file=htmlreport)
         htmlreport.close()
     
-    def gen_report(self):
-        
-        # TODO rewrite text report generation
-        
-        # Top 10 Report
-        report = open('report_{0}.dat'.format(
-            str(self.analyze_year)), 'w', encoding=("utf8"))
-        print("#################### Top Artists #####################", file=report)
-        # select artist, occurrence
-        sorted_artists = self.artistsDF.sort_values(by=['Occurrences'], ascending=False)
-        top_artists, top_occurrences = sorted_artists['Artist'], sorted_artists['Occurrences']
-        del sorted_artists
-        for i, j in zip(top_artists, top_occurrences):
-            print('{0} - {1}'.format(i, j), file=report)
-    
-        print("#################### Top Songs #####################", file=report)
-        # select artist, title, occurrence
-        sorted_songs = self.songsDF.sort_values(by=['Occurrences'], ascending=False)
-        top_songs, top_artists, top_occurrences = sorted_songs['Title'], sorted_songs['Artist'], sorted_songs['Occurrences']
-        for i, j, k in zip(top_songs, top_artists, top_occurrences):
-            datetime.datetime.now()
-            print('{0} - {1} - {2}'.format(j, i, k), file=report)
-    
-        if self.duration:
-            total_duration, total_songs = 0, len(self.historyDF) # TBA
-            # WILL ADD MORE STUFF AS WELL
-            print("\n#################### Duration #####################", file=report)
-            print('Total duration : {0}'.format(total_duration), file=report)
-            print('Total song count : {0}'.format(total_songs), file=report)
-        report.close()
-        self.gen_html_report()
-    
 # flags
-
 # TODO fix parameter/flags system
-verbose, more_details, duration, analyze_year, use_songs, apikey, load, loadfp = (False, False, False, False, datetime.datetime.now().year, None, False, None)
+more_details, duration, analyze_year, use_songs, apikey, load, loadfp = (False, False, False, datetime.datetime.now().year, None, False, os.getcwd())
 
 opts, args = getopt.getopt(sys.argv[2:], "d:y:mv", ["duration=", "year="])
 for o, token in opts:
-    if o == "-v":
-        verbose = True
-    elif o == "-m":
+    if o == "-m":
         more_details = True
     elif o in ("-d", "--duration"):
         duration = True
@@ -309,9 +257,18 @@ for o, token in opts:
     elif o in ("-l", "--load"):
         load = True
         loadfp = token
-        
-# DEBUG
-load = True
-loadfp = "report-history.csv"
-        
-analyzer = Analyzer(verbose, duration, more_details, analyze_year, use_songs, apikey, load, loadfp)
+                
+loader = Loader(duration, more_details, analyze_year, use_songs, apikey)
+if load:
+    history, artists, songs = loader.load(loadfp)
+else:
+    history, artists, songs = loader.outs()
+
+analyzer = Analyzer(history, artists, songs)
+artists_top, songs_top = analyzer.tops()
+meta = analyzer.meta()
+
+formatter = Formatter() 
+formatter.gen_report((analyze_year, duration, more_details), meta, artists_top, songs_top)
+
+print("All done!")
