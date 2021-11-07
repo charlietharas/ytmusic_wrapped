@@ -4,10 +4,11 @@
 - frequency charts for # of relistens of top 16 songs ("your sweet 16")
 
 - longest listening session
+- most amount of times listened to a song within a day
+
+- song of each month
 
 - skip detection via timestamps of listen & duration of song
-
-- get # of unique songs listened to from each artist (sort by artist)
 
 - primitive documentation
 
