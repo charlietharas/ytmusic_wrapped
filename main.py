@@ -1,5 +1,4 @@
-﻿import sqlite3
-import datetime
+﻿import datetime
 import sys
 import getopt
 import json
@@ -8,6 +7,7 @@ import re
 import pandas as pd
 import collections
 import os
+import itertools
 
 class Loader():
     # backbone methods
@@ -183,26 +183,66 @@ class Analyzer():
     def tops(self):
         # Top 10 Songs
         songs_top = self.songs.nlargest(10, ['Occurrences'])
-        print("--- TOP SONGS ---")
-        print(songs_top)
         
         # Top 10 Artists
-        print(self.artists.head())
         artists_top = self.artists.nlargest(10, ['Duration'])
-        print("--- TOP ARTISTS ---")
-        print(artists_top)
         
         return artists_top, songs_top
     
     def meta(self):
-        total_minutes = sum(self.history["Duration"])
-        return (total_minutes)
+        meta = {}
+        meta["Total Minutes"] = sum(self.history["Duration"])
+        meta["Total Songs"] = len(self.history["Title"])
+        meta["Unique Songs"] = len(self.songs["Title"])
+        meta["Unique Artists"] = len(self.artists["Artist"])
+        return meta
+    
+    # specific optional analysis functions
+    def uniques(self):
+        uniques = {}
+        uniques["Top 10 Unique Artists"] = collections.Counter(self.songs["Artist"]).most_common(10)
+        return uniques
+    
+    def repeats(self):
+        repeats = {}
+        grouped_history = [(_, sum(1 for ii in i)) for _,i in itertools.groupby(self.history["URL"])]
+        grouped_history.sort(key = lambda x : x[1])
+        grouped_history.reverse()
+        repeats["Most Consecutively Repeated Song"] = grouped_history[:10]
+        return repeats
+    
+    def chronology(self):
+        # this stuff will break if you are analyzing a period longer than a year
+        chronology = {}
+        top_songs_per_month = []
+        for month in range(12):
+            songs_for_month = {"Title": [], "Artist": [], "URL": [], "Duration": []}
+            for j,i in enumerate(self.history["Year"]):
+                if int(i[5:7]) == month+1:
+                    songs_for_month["Title"].append(self.history["Title"][j])
+                    songs_for_month["Artist"].append(self.history["Artist"][j])
+                    songs_for_month["URL"].append(self.history["URL"][j])
+                    songs_for_month["Duration"].append(self.history["Duration"][j])
+        
+            occurrences = collections.Counter(songs_for_month['URL'])
+            songs_for_month['Occurrences'] = []
+            for i in songs_for_month['URL']:
+                songs_for_month['Occurrences'].append(occurrences[i])
+            songs_for_month_DF = pd.DataFrame(songs_for_month)
+            songs_for_month_DF.drop_duplicates(subset=['URL'], inplace=True)
+            top_songs_per_month.append(songs_for_month_DF.nlargest(3, ['Occurrences']))
+
+        chronology["Top 3 Songs Per Month"] = top_songs_per_month
+        
+        # TODO top dailies
+        
+        return chronology
     
 class Formatter():
     def gen_report(self, args, meta, artists_top, songs_top):
         
         analyze_year, duration, more_details = args
-        total_minutes = meta
+        total_minutes = meta["Total Minutes"]
         
         # TODO rewrite HTML report generation        
         # TODO Calculate total duration
@@ -217,7 +257,6 @@ class Formatter():
             print("N/A", file=htmlreport)
         print("""</div><br><br><div class="row"><div class="column"><div class="minutes_title">Top Artists</div><div class="list">""", file=htmlreport)
 
-        print(artists_top.columns)
         for i, j, v in zip(artists_top["Artist"], artists_top["Occurrences"], artists_top["Duration"]): # TODO add durations to artist stuff
             print("<br>", file=htmlreport)
             if more_details:
@@ -238,10 +277,12 @@ class Formatter():
                 print('{0} - {1}'.format(j, i), file=htmlreport)
         print("""</div></div></div></div></div></body></html>""", file=htmlreport)
         htmlreport.close()
-    
+        
+        # temp format for debugging extra analyses
+
 # flags
 # TODO fix parameter/flags system
-more_details, duration, analyze_year, use_songs, apikey, load, loadfp = (False, False, False, datetime.datetime.now().year, None, False, os.getcwd())
+more_details, duration, analyze_year, use_songs, apikey, load, loadfp = (False, False, False, datetime.datetime.now().year, None, True, os.getcwd())
 
 opts, args = getopt.getopt(sys.argv[2:], "d:y:mv", ["duration=", "year="])
 for o, token in opts:
@@ -270,5 +311,17 @@ meta = analyzer.meta()
 
 formatter = Formatter() 
 formatter.gen_report((analyze_year, duration, more_details), meta, artists_top, songs_top)
+
+print(" -- ANALYSIS DEBUGGING -- ")
+print(" - Uniques - ")
+print(analyzer.uniques())
+print(" - Repeats - ")
+print(analyzer.repeats())
+print(" - Chronology - ")
+chrono = analyzer.chronology()
+for j, i in enumerate(chrono["Top 3 Songs Per Month"]):
+    #print(j+1)
+    #print(i)
+    pass
 
 print("All done!")
