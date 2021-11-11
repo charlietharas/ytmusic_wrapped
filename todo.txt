@@ -13,6 +13,14 @@
 
 - matplotlib & GUI libraries (until more aesthetic things can be found)
 
+- make all calculations involving durations optional depending on the durations flag (from the YT api)
+
+- this program is REALLY bad at accounting for everything
+ - from leap years
+ - to days not listened to music
+ - to if the user doesn't have the durations
+ - yeah im sure theres so much other stuff
+
 Long-term:
 - understand songs' relation to one another by their sequence
 - music as NLP: each song is a word, each session a sentence
