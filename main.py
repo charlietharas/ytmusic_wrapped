@@ -8,6 +8,7 @@ import pandas as pd
 import collections
 import os
 import itertools
+import matplotlib.pyplot as plt
 
 class Loader():
     # backbone methods
@@ -257,18 +258,37 @@ class Analyzer():
                 
         # todo most repeated song on day
         # in the case that user doesn't really have this metric, it needs to be omitted
-        # calculating whether or not they do can be done by getting most repeated song per day, getting z-score of max of this set
-        # later...
+        # calculating whether or not they do can be done by getting most repeated song per day, getting z-score of max of this set || i'll get to it ... later
+        
         del days[0]
-        day_most_listened = -1
+        day_most_listened = -1 # day you listened to the most music function
+        durations_per_day = [] # durations per day function
         for j, i in enumerate(days):
             urls = collections.Counter(i["URL"])
             day_most_listened = j if len(urls.values()) > day_most_listened else day_most_listened
+            durations_per_day.append(sum(i["Duration"]))
             
-        chronology["Most Diverse Day"] = [day_most_listened, sum(days[day_most_listened]["Duration"])] # this is the Nth day of the year
+        # since it counts from NOW to the past, this is in reverse order (this breaks of day 1 of the dataset isn't jan 1... uh oh)
+        chronology["Most Diverse Day"] = [len(days) - day_most_listened , durations_per_day[day_most_listened]//60] # this is the Nth day of the year
+        chronology["Durations Per Day"] = durations_per_day
+        chronology["Most Musical Day"] = [len(days) - durations_per_day.index(max(durations_per_day)), max(durations_per_day)//60] # maybe several days ?? later ig
         
+        # debug
+        print(max(durations_per_day))
+                
         return chronology
     
+    def averages(self):
+        averages = {}
+        averages["Average Song Length"] = sum(self.history["Duration"]) / len(self.history["Duration"])
+        averages["Average Song Length Unique"] = sum(self.songs["Duration"]) / len(self.songs["Duration"])
+        years = []
+        for i in self.history["Year"]:
+            years.append(i[5:10])
+        averages["Average Seconds per Day"] = sum(self.history["Duration"]) / len(collections.Counter(years))
+        
+        return averages
+            
 class Formatter():
     def gen_report(self, args, meta, artists_top, songs_top):
         
@@ -309,8 +329,6 @@ class Formatter():
         print("""</div></div></div></div></div></body></html>""", file=htmlreport)
         htmlreport.close()
         
-        # temp format for debugging extra analyses
-
 # flags
 # TODO fix parameter/flags system
 more_details, duration, analyze_year, use_songs, apikey, load, loadfp = (False, False, False, datetime.datetime.now().year, None, True, os.getcwd())
@@ -351,9 +369,12 @@ print(analyzer.repeats())
 print(" - Chronology - ")
 chrono = analyzer.chronology()
 for j, i in enumerate(chrono["Top 3 Songs Per Month"]):
-    print(j)
-    print(i)
+    #print(j)
+    #print(i)
     pass
 print(list(chrono.items())[1])
+print(list(chrono.items())[3])
+print(" - Averages - ")
+print(analyzer.averages())
 
 print("All done!")
