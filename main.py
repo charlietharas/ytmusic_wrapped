@@ -235,6 +235,37 @@ class Analyzer():
         chronology["Top 3 Songs Per Month"] = top_songs_per_month
         
         # TODO top dailies
+        prev_day = -1
+        count = 0
+        days = []
+        songs_for_day = {"Title": [], "Artist": [], "URL": [], "Duration": []}
+        for j, i in enumerate(self.history["Year"]):
+            if i[5:10] != prev_day:
+                prev_day = i[5:10]
+                days.append(songs_for_day)
+                songs_for_day = {"Title": [], "Artist": [], "URL": [], "Duration": []}
+                songs_for_day["Title"].append(self.history["Title"][j])
+                songs_for_day["Artist"].append(self.history["Artist"][j])
+                songs_for_day["URL"].append(self.history["URL"][j])
+                songs_for_day["Duration"].append(self.history["Duration"][j])
+            else:
+                songs_for_day["Title"].append(self.history["Title"][j])
+                songs_for_day["Artist"].append(self.history["Artist"][j])
+                songs_for_day["URL"].append(self.history["URL"][j])
+                songs_for_day["Duration"].append(self.history["Duration"][j])
+        days.append(songs_for_day)
+                
+        # todo most repeated song on day
+        # in the case that user doesn't really have this metric, it needs to be omitted
+        # calculating whether or not they do can be done by getting most repeated song per day, getting z-score of max of this set
+        # later...
+        del days[0]
+        day_most_listened = -1
+        for j, i in enumerate(days):
+            urls = collections.Counter(i["URL"])
+            day_most_listened = j if len(urls.values()) > day_most_listened else day_most_listened
+            
+        chronology["Most Diverse Day"] = [day_most_listened, sum(days[day_most_listened]["Duration"])] # this is the Nth day of the year
         
         return chronology
     
@@ -320,8 +351,9 @@ print(analyzer.repeats())
 print(" - Chronology - ")
 chrono = analyzer.chronology()
 for j, i in enumerate(chrono["Top 3 Songs Per Month"]):
-    #print(j+1)
-    #print(i)
+    print(j)
+    print(i)
     pass
+print(list(chrono.items())[1])
 
 print("All done!")
