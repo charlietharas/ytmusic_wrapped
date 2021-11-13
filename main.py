@@ -287,6 +287,33 @@ class Analyzer():
             years.append(i[5:10])
         averages["Average Seconds per Day"] = sum(self.history["Duration"]) / len(collections.Counter(years))
         
+        min_song_length = min(self.songs["Duration"])
+        max_song_length = max(self.songs["Duration"])
+        min_song_idx = list(self.songs["Duration"]).index(min_song_length)
+        max_song_idx = list(self.songs["Duration"]).index(max_song_length)
+        
+        averages["Shortest Song"] = [min_song_length, self.songs["Title"][min_song_idx], self.songs["Artist"][min_song_idx]]
+        averages["Longest Song"] = [max_song_idx, self.songs["Title"][max_song_idx], self.songs["Artist"][max_song_idx]]
+        
+        # 5th percentile song by duration?
+        # 95th percentile song by duration?
+        # median song length
+        
+        history_duration_sorted = self.history["Duration"].copy()
+        songs_duration_sorted = self.songs["Duration"].copy()
+        history_duration_sorted = list(history_duration_sorted)
+        songs_duration_sorted = list(songs_duration_sorted)
+        history_duration_sorted.sort()
+        songs_duration_sorted.sort()
+        averages["Median Song Length"] = history_duration_sorted[int(len(history_duration_sorted)/2)]
+        averages["Median Song Length Unique"] = songs_duration_sorted[int(len(songs_duration_sorted)/2)]
+        
+        #plt.hist(list(self.songs["Duration"]), 30, (0, 600))
+        #plt.show()
+        
+        averages["Average Replays"] = sum(self.songs["Occurrences"]) / len(self.songs["Occurrences"])
+        averages["Max Replays"] = max(self.songs["Occurrences"]) # yes this statistic is already calculated somewhere else
+        
         return averages
             
 class Formatter():
