@@ -192,7 +192,7 @@ class Analyzer():
     
     def meta(self):
         meta = {}
-        meta["Total Minutes"] = sum(self.history["Duration"])
+        meta["Total Seconds"] = sum(self.history["Duration"])
         meta["Total Songs"] = len(self.history["Title"])
         meta["Unique Songs"] = len(self.songs["Title"])
         meta["Unique Artists"] = len(self.artists["Artist"])
@@ -320,7 +320,7 @@ class Formatter():
     def gen_report(self, args, meta, artists_top, songs_top):
         
         analyze_year, duration, more_details = args
-        total_minutes = meta["Total Minutes"]
+        total_seconds = meta["Total Seconds"]
         
         # TODO rewrite HTML report generation        
         # TODO Calculate total duration
@@ -330,7 +330,7 @@ class Formatter():
         print(str(analyze_year), file=htmlreport)
         print(""" Wrapped</span><div class="container"><div class="minutes_title">Minutes Listened</div><div class="minutes">""", file=htmlreport)
         if duration:
-            print(str(total_minutes//60), file=htmlreport)
+            print(str(total_seconds//60), file=htmlreport)
         else:
             print("N/A", file=htmlreport)
         print("""</div><br><br><div class="row"><div class="column"><div class="minutes_title">Top Artists</div><div class="list">""", file=htmlreport)
@@ -389,6 +389,8 @@ formatter = Formatter()
 formatter.gen_report((analyze_year, duration, more_details), meta, artists_top, songs_top)
 
 print(" -- ANALYSIS DEBUGGING -- ")
+print(" - Meta - ")
+print(analyzer.meta())
 print(" - Uniques - ")
 print(analyzer.uniques())
 print(" - Repeats - ")
