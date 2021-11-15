@@ -12,9 +12,9 @@ import matplotlib.pyplot as plt
 
 class Loader():
     # backbone methods
-    def __init__(self, duration, more_details, use_songs, analyze_year, apikey):
-        self.duration, self.more_details, self.use_songs, self.analyze_year, self.apikey = (duration, more_details, use_songs, analyze_year, apikey)
-        self.file = self.open_file(sys.argv[1], ".json")
+    def __init__(self, duration, more_details, use_songs, analyze_year, apikey, filepath):
+        self.duration, self.more_details, self.use_songs, self.analyze_year, self.apikey, self.filepath = (duration, more_details, use_songs, analyze_year, apikey, filepath)
+        self.file = self.open_file(self.filepath, ".json")
         
     # utility methods
     def should_not_ignore(self, title, year, header):
@@ -375,7 +375,9 @@ for o, token in opts:
         load = True
         loadfp = token
                 
-loader = Loader(duration, more_details, analyze_year, use_songs, apikey)
+# filepath = sys.argv[1]
+filepath = "watch-history.json"
+loader = Loader(duration, more_details, analyze_year, use_songs, apikey, filepath)
 if load:
     history, artists, songs = loader.load(loadfp)
 else:
