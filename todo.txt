@@ -20,6 +20,7 @@ GENERAL USABILITY
   - to if the user doesn't have the durations
   - yeah im sure theres so much other stuff
 - primitive documentation
+- fix flags system (mostly for debugging at this pt)
 
 
 LONG TERM
