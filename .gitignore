@@ -2,6 +2,7 @@
 *.db
 *.csv
 watch-history.json
+*.json
 report*
 ytmusic*
 
