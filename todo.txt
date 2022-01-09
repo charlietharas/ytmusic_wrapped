@@ -1,26 +1,28 @@
+Sync Colab and GitHub/Eclipse changes
+
 ANALYSIS
 - longest listening session
-- longest and shortest songs ??
 - frequency charts for # of relistens of top 16 songs ("your sweet 16")
-
+- most popular days of the week
+- PLAYLISTS (this will be a little tougher?)
 
 NEW FEATURES
-- matplotlib & GUI libraries (until more aesthetic things can be found)
+- matplotlib & GUI libraries (until more aesthetic things can be found) (omw there!!)
 - skip detection via timestamps of listen & duration of song (??)
 - combine songs with identical titles and artists but different URLs (under the same URL - idfk). Create ID system instead of using URLs as identifiers).
 	- maybe have a google photos "is this the same person" style prompt for these once a UI is created
 
-
 GENERAL USABILITY
 - make all calculations involving durations optional depending on the durations flag (from the YT api)
+	- maybe even remove flags all together and just make a GUI because there are going to be so many options
 - add an option to load watch-history, and to generate other two .csv files from just report-history
 - this program is REALLY bad at accounting for everything
   - from leap years
   - to days not listened to music
   - to if the user doesn't have the durations
   - yeah im sure theres so much other stuff
+  - new features are EST-only friendly (timezone flag could fix?)
 - primitive documentation
-
 
 LONG TERM
 - understand songs' relation to one another by their sequence
