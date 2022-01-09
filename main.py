@@ -358,7 +358,7 @@ class Formatter():
         
 # flags
 # TODO fix parameter/flags system
-more_details, duration, analyze_year, use_songs, apikey, load, loadfp = (False, False, False, datetime.datetime.now().year, None, True, os.getcwd())
+more_details, duration, analyze_year, use_songs, apikey, load, loadfp = (False, False, False, datetime.datetime.now().year, None, False, os.getcwd())
 
 opts, args = getopt.getopt(sys.argv[2:], "d:y:mv", ["duration=", "year="])
 for o, token in opts:
