@@ -23,6 +23,7 @@ GENERAL USABILITY
   - yeah im sure theres so much other stuff
   - new features are EST-only friendly (timezone flag could fix?)
 - primitive documentation
+- fix flags system (mostly for debugging at this pt)
 
 LONG TERM
 - understand songs' relation to one another by their sequence
